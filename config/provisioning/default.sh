@@ -36,7 +36,7 @@ NODES=(
 
   "https://github.com/kijai/ComfyUI-KJNodes"
 
-  "https://github.com/ltdrdata/ComfyUI-Impact-Pack"
+  "https://github.com/rgthree/rgthree-comfy"
 
   "https://github.com/ltdrdata/ComfyUI-Impact-Subpack"
 
@@ -62,9 +62,10 @@ CHECKPOINT_MODELS=(
 
 CLIP_VISION_MODELS=(
 
+"https://huggingface.co/TenStrip/qwen_3_4b_heretic_bf16/resolve/main/qwen_3_4b_heretic.safetensors"
 
 
-  "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/clip_vision/clip_vision_h.safetensors?download=true"
+  
 
 
 
@@ -74,7 +75,7 @@ CLIP_VISION_MODELS=(
 
 UNET_MODELS=(     
 
-  
+  "https://civitai.com/api/download/models/2513182?type=Model&format=SafeTensor&size=pruned&fp=fp8"
 
 
 
@@ -86,7 +87,7 @@ UNET_MODELS=(
 
 LORA_MODELS=( 
 
-  "https://huggingface.co/Kijai/WanVideo_comfy/resolve/8697fbd00bf062350864a3ff431b077fbc62886d/Lightx2v/lightx2v_I2V_14B_480p_cfg_step_distill_rank128_bf16.safetensors?download=true"
+  # "https://huggingface.co/Kijai/WanVideo_comfy/resolve/8697fbd00bf062350864a3ff431b077fbc62886d/Lightx2v/lightx2v_I2V_14B_480p_cfg_step_distill_rank128_bf16.safetensors?download=true"
 
 )
 
@@ -95,6 +96,7 @@ LORA_MODELS=(
 VAE_MODELS=(    
 
   "https://civitai.com/api/download/models/155933?type=Model&format=SafeTensor"
+  "https://civitai.com/api/download/models/2442479?type=Model&format=SafeTensor&size=full&fp=fp16"
 
 )
 
@@ -103,6 +105,7 @@ VAE_MODELS=(
 UPSCALE_MODELS=(  
 
   "https://huggingface.co/Kim2091/2x-AnimeSharpV4/resolve/main/2x-AnimeSharpV4_RCAN.safetensors"
+  "https://huggingface.co/uwg/upscaler/resolve/main/ESRGAN/4x_NMKD-Siax_200k.pth"
 
 )
 
@@ -112,9 +115,7 @@ CONTROLNET_MODELS=( )
 
 DIFFUSION_MODELS=(
 
-  "https://civitai.com/api/download/models/2513182?type=Model&format=SafeTensor&size=pruned&fp=fp8"
-
-  "https://civitai.com/api/download/models/2555652?type=Model&format=SafeTensor&size=full&fp=fp8"
+ 
 
   
 
@@ -124,7 +125,7 @@ DIFFUSION_MODELS=(
 
 TEXT_ENCODER_MODELS=(
 
-  "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors?download=true"
+
 
 )
 
