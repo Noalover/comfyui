@@ -38,7 +38,7 @@ NODES=(
 
   "https://github.com/rgthree/rgthree-comfy"
 
-  "https://github.com/ltdrdata/ComfyUI-Impact-Subpack"
+  
 
   "https://github.com/NyaamZ/efficiency-nodes-ED"
 
@@ -62,7 +62,7 @@ CHECKPOINT_MODELS=(
 
 CLIP_VISION_MODELS=(
 
-"https://huggingface.co/TenStrip/qwen_3_4b_heretic_bf16/resolve/main/qwen_3_4b_heretic.safetensors"
+#"https://huggingface.co/TenStrip/qwen_3_4b_heretic_bf16/resolve/main/qwen_3_4b_heretic.safetensors"
 
 
   
@@ -75,7 +75,7 @@ CLIP_VISION_MODELS=(
 
 UNET_MODELS=(     
 
-  "https://civitai.com/api/download/models/2513182?type=Model&format=SafeTensor&size=pruned&fp=fp8"
+  #"https://civitai.com/api/download/models/2513182?type=Model&format=SafeTensor&size=pruned&fp=fp8"
 
 
 
