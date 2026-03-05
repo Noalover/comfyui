@@ -115,6 +115,8 @@ CONTROLNET_MODELS=( )
 
 DIFFUSION_MODELS=(
 
+   "https://civitai.com/api/download/models/2513182?type=Model&format=SafeTensor&size=pruned&fp=fp8"
+
  
 
   
@@ -124,6 +126,8 @@ DIFFUSION_MODELS=(
 
 
 TEXT_ENCODER_MODELS=(
+
+   "https://huggingface.co/TenStrip/qwen_3_4b_heretic_bf16/resolve/main/qwen_3_4b_heretic.safetensors"
 
 
 
