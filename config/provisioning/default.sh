@@ -44,7 +44,6 @@ NODES=(
 
   "https://github.com/jags111/efficiency-nodes-comfyui"
 
-  "
   
 
   
