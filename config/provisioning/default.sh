@@ -38,11 +38,7 @@ NODES=(
 
   "https://github.com/rgthree/rgthree-comfy"
 
-  "https://github.com/ssitu/ComfyUI_UltimateSDUpscale?tab=readme-ov-file"
 
-  "https://github.com/NyaamZ/efficiency-nodes-ED"
-
-  "https://github.com/jags111/efficiency-nodes-comfyui"
 
   
 
