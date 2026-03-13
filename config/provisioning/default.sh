@@ -48,9 +48,9 @@ NODES=(
 
   "https://github.com/jags111/efficiency-nodes-comfyui"
 
-  "https://github.com/ltdrdata/ComfyUI-Impact-Pack"
+  
 
-  "https://github.com/ltdrdata/ComfyUI-Impact-Subpack"
+  
 
   
 
@@ -103,7 +103,7 @@ UNET_MODELS=(
 
 LORA_MODELS=( 
 
-  # "https://huggingface.co/Kijai/WanVideo_comfy/resolve/8697fbd00bf062350864a3ff431b077fbc62886d/Lightx2v/lightx2v_I2V_14B_480p_cfg_step_distill_rank128_bf16.safetensors?download=true"
+  "https://civitai.com/api/download/models/2553688?type=Model&format=SafeTensor"
 
 )
 
