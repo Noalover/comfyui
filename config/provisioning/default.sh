@@ -103,7 +103,7 @@ UNET_MODELS=(
 
 LORA_MODELS=( 
 
-  "https://civitai.com/api/download/models/2553688?type=Model&format=SafeTensor"
+  #"https://civitai.com/api/download/models/2553688?type=Model&format=SafeTensor"
 
 )
 
@@ -113,6 +113,7 @@ VAE_MODELS=(
 
   "https://civitai.com/api/download/models/155933?type=Model&format=SafeTensor"
   "https://civitai.com/api/download/models/2442479?type=Model&format=SafeTensor&size=full&fp=fp16"
+  "https://huggingface.co/circlestone-labs/Anima/resolve/main/split_files/vae/qwen_image_vae.safetensors?download=true"
 
 )
 
@@ -132,6 +133,8 @@ CONTROLNET_MODELS=( )
 DIFFUSION_MODELS=(
 
    #"https://civitai.com/api/download/models/2513182?type=Model&format=SafeTensor&size=pruned&fp=fp8"
+    "https://civitai.com/api/download/models/2851312?type=Model&format=SafeTensor&size=full&fp=bf16"
+    
 
  
 
@@ -144,6 +147,8 @@ DIFFUSION_MODELS=(
 TEXT_ENCODER_MODELS=(
 
    #"https://huggingface.co/TenStrip/qwen_3_4b_heretic_bf16/resolve/main/qwen_3_4b_heretic.safetensors"
+    "https://huggingface.co/circlestone-labs/Anima/resolve/main/split_files/text_encoders/qwen_3_06b_base.safetensors?download=true"
+    
 
 
 
