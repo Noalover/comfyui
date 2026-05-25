@@ -46,7 +46,9 @@ NODES=(
 )
 
 CHECKPOINT_MODELS=(
-  "https://civitai.com/api/download/models/1555027?type=Model&format=SafeTensor"
+  #"https://civitai.com/api/download/models/1555027?type=Model&format=SafeTensor"
+   "https://civitai.com/api/download/models/2167369?type=Model&format=SafeTensor&size=pruned&fp=fp16&token=b25d22131228cf310a4b8840219ea12e"
+
 )
 
 CLIP_VISION_MODELS=(
@@ -54,6 +56,7 @@ CLIP_VISION_MODELS=(
 
 UNET_MODELS=(
   #"https://civitai.com/api/download/models/2513182?type=Model&format=SafeTensor&size=pruned&fp=fp8"
+
 )
 
 LORA_MODELS=(
@@ -76,7 +79,7 @@ CONTROLNET_MODELS=(
 
 DIFFUSION_MODELS=(
   #"https://civitai.com/api/download/models/2513182?type=Model&format=SafeTensor&size=pruned&fp=fp8"
-  "https://civitai.com/api/download/models/2851312?type=Model&format=SafeTensor&size=full&fp=bf16"
+  "https://civitai.com/api/download/models/2957298?type=Model&format=SafeTensor&size=pruned&fp=bf16&token=b25d22131228cf310a4b8840219ea12e"
 )
 
 TEXT_ENCODER_MODELS=(
