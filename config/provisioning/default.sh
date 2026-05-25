@@ -10,13 +10,19 @@ exec > >(tee -a /workspace/provision_debug.log) 2>&1
 
 log(){ echo "[provision] $*"; }
 
+env_len() {
+  local var_name="$1"
+  local value="${!var_name:-}"
+  echo "${#value}"
+}
+
 log "SCRIPT STARTED at $(date)"
 log "whoami=$(whoami)"
 log "pwd=$(pwd)"
 log "WORKSPACE=${WORKSPACE:-unset}"
-log "CIVITAI_TOKEN length=${#CIVITAI_TOKEN:-0}"
-log "HF_TOKEN length=${#HF_TOKEN:-0}"
-log "HUGGINGFACE_HUB_TOKEN length=${#HUGGINGFACE_HUB_TOKEN:-0}"
+log "CIVITAI_TOKEN length=$(env_len CIVITAI_TOKEN)"
+log "HF_TOKEN length=$(env_len HF_TOKEN)"
+log "HUGGINGFACE_HUB_TOKEN length=$(env_len HUGGINGFACE_HUB_TOKEN)"
 
 # ============================================================
 # USER CONFIG
@@ -47,8 +53,7 @@ NODES=(
 
 CHECKPOINT_MODELS=(
   #"https://civitai.com/api/download/models/1555027?type=Model&format=SafeTensor"
-   "https://civitai.com/api/download/models/2167369?type=Model&format=SafeTensor&size=pruned&fp=fp16&token=b25d22131228cf310a4b8840219ea12e"
-
+  "https://civitai.com/api/download/models/2167369?type=Model&format=SafeTensor&size=pruned&fp=fp16"
 )
 
 CLIP_VISION_MODELS=(
@@ -56,7 +61,6 @@ CLIP_VISION_MODELS=(
 
 UNET_MODELS=(
   #"https://civitai.com/api/download/models/2513182?type=Model&format=SafeTensor&size=pruned&fp=fp8"
-
 )
 
 LORA_MODELS=(
@@ -79,7 +83,7 @@ CONTROLNET_MODELS=(
 
 DIFFUSION_MODELS=(
   #"https://civitai.com/api/download/models/2513182?type=Model&format=SafeTensor&size=pruned&fp=fp8"
-  "https://civitai.com/api/download/models/2957298?type=Model&format=SafeTensor&size=pruned&fp=bf16&token=b25d22131228cf310a4b8840219ea12e"
+  "https://civitai.com/api/download/models/2957298?type=Model&format=SafeTensor&size=pruned&fp=bf16"
 )
 
 TEXT_ENCODER_MODELS=(
@@ -346,7 +350,9 @@ provisioning_download_to_dir() {
   fi
 
   if [[ "$url" =~ civitai\.com ]]; then
-    if [[ -z "${CIVITAI_TOKEN:-}" ]]; then
+    if [[ "$url" == *"token="* ]]; then
+      log "Civitai URL already contains token parameter"
+    elif [[ -z "${CIVITAI_TOKEN:-}" ]]; then
       log "WARNING: Civitai URL detected but CIVITAI_TOKEN is empty"
     else
       if [[ "$url" == *"?"* ]]; then
@@ -360,7 +366,7 @@ provisioning_download_to_dir() {
   log "Downloading into $dir"
 
   if [[ "$url" =~ civitai\.com ]]; then
-    log "Source: Civitai URL with token length=${#CIVITAI_TOKEN:-0}"
+    log "Source: Civitai URL with token length=$(env_len CIVITAI_TOKEN)"
   else
     log "Source: $url"
   fi
@@ -534,7 +540,7 @@ print_dir_summary() {
   log "---- $label: $dir ----"
 
   if [[ -d "$dir" ]]; then
-    find "$dir" -maxdepth 1 -type f -o -type l | while read -r f; do
+    find "$dir" -maxdepth 1 \( -type f -o -type l \) | while read -r f; do
       ls -lh "$f" || true
     done
   else
