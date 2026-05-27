@@ -69,7 +69,6 @@ LORA_MODELS=(
 
 VAE_MODELS=(
   "https://civitai.com/api/download/models/155933?type=Model&format=SafeTensor"
-  "https://civitai.com/api/download/models/2442479?type=Model&format=SafeTensor&size=full&fp=fp16"
   "https://huggingface.co/circlestone-labs/Anima/resolve/main/split_files/vae/qwen_image_vae.safetensors?download=true"
   "https://huggingface.co/Tongyi-MAI/Z-Image-Turbo/resolve/main/vae/diffusion_pytorch_model.safetensors"
 )
