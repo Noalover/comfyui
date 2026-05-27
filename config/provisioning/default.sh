@@ -71,6 +71,7 @@ VAE_MODELS=(
   "https://civitai.com/api/download/models/155933?type=Model&format=SafeTensor"
   "https://civitai.com/api/download/models/2442479?type=Model&format=SafeTensor&size=full&fp=fp16"
   "https://huggingface.co/circlestone-labs/Anima/resolve/main/split_files/vae/qwen_image_vae.safetensors?download=true"
+  "https://huggingface.co/Tongyi-MAI/Z-Image-Turbo/resolve/main/vae/diffusion_pytorch_model.safetensors"
 )
 
 UPSCALE_MODELS=(
@@ -88,6 +89,7 @@ DIFFUSION_MODELS=(
 
 TEXT_ENCODER_MODELS=(
   "https://huggingface.co/circlestone-labs/Anima/resolve/main/split_files/text_encoders/qwen_3_06b_base.safetensors?download=true"
+  "https://huggingface.co/Qwen/Qwen3-4B-GGUF/resolve/main/Qwen3-4B-Q6_K.gguf"
 )
 
 # ============================================================
