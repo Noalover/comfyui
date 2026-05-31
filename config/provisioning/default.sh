@@ -49,6 +49,7 @@ NODES=(
   "https://github.com/willmiao/ComfyUI-Lora-Manager"
   "https://github.com/ssitu/ComfyUI_UltimateSDUpscale"
   "https://github.com/jags111/efficiency-nodes-comfyui"
+  "https://github.com/kohya-ss/ComfyUI-Anima-LLLite"
 )
 
 CHECKPOINT_MODELS=(
@@ -79,6 +80,8 @@ UPSCALE_MODELS=(
 )
 
 CONTROLNET_MODELS=(
+  "https://huggingface.co/kohya-ss/Anima-LLLite/resolve/main/anima-lllite-any-test-like-v2.safetensors"
+  "https://huggingface.co/kohya-ss/Anima-LLLite/resolve/main/anima-lllite-inpainting-v2.safetensors"
 )
 
 DIFFUSION_MODELS=(
@@ -88,7 +91,7 @@ DIFFUSION_MODELS=(
 
 TEXT_ENCODER_MODELS=(
   "https://huggingface.co/circlestone-labs/Anima/resolve/main/split_files/text_encoders/qwen_3_06b_base.safetensors?download=true"
-  "https://huggingface.co/Qwen/Qwen3-4B-GGUF/resolve/main/Qwen3-4B-Q6_K.gguf"
+  #"https://huggingface.co/Qwen/Qwen3-4B-GGUF/resolve/main/Qwen3-4B-Q6_K.gguf"
 )
 
 # ============================================================
