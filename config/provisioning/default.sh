@@ -36,6 +36,7 @@ APT_PACKAGES=(
 )
 
 PIP_PACKAGES=(
+  "gdown"
 )
 
 NODES=(
@@ -50,6 +51,8 @@ NODES=(
   "https://github.com/ssitu/ComfyUI_UltimateSDUpscale"
   "https://github.com/jags111/efficiency-nodes-comfyui"
   "https://github.com/kohya-ss/ComfyUI-Anima-LLLite"
+  "https://github.com/ltdrdata/ComfyUI-Impact-Pack"
+  "https://github.com/ltdrdata/ComfyUI-Impact-Subpack"
 )
 
 CHECKPOINT_MODELS=(
@@ -86,12 +89,14 @@ CONTROLNET_MODELS=(
 
 DIFFUSION_MODELS=(
   #"https://civitai.com/api/download/models/2513182?type=Model&format=SafeTensor&size=pruned&fp=fp8"
-  "https://civitai.com/api/download/models/2957298?type=Model&format=SafeTensor&size=pruned&fp=bf16"
+  #"https://civitai.com/api/download/models/2957298?type=Model&format=SafeTensor&size=pruned&fp=bf16"
+  "https://civitai.com/api/download/models/2994532?fileId=2874152"
+  "https://drive.google.com/file/d/1v1DNy_vQm0WVvZdqTjgUd0AqjBLadG-3/view?usp=sharing"
 )
 
 TEXT_ENCODER_MODELS=(
   "https://huggingface.co/circlestone-labs/Anima/resolve/main/split_files/text_encoders/qwen_3_06b_base.safetensors?download=true"
-  #"https://huggingface.co/Qwen/Qwen3-4B-GGUF/resolve/main/Qwen3-4B-Q6_K.gguf"
+  "https://huggingface.co/Qwen/Qwen3-4B-GGUF/resolve/main/Qwen3-4B-Q6_K.gguf"
 )
 
 # ============================================================
@@ -496,6 +501,139 @@ provisioning_get_models_dir_urlonly() {
   done
 }
 
+
+# ============================================================
+# IMPACT PACK / SUBPACK DETECTOR MODEL RESTORE
+# ============================================================
+
+provisioning_download_exact_file() {
+  local url="$1"
+  local dest="$2"
+
+  mkdir -p "$(dirname "$dest")"
+
+  local size=0
+  if [[ -f "$dest" ]]; then
+    size="$(stat -c%s "$dest" 2>/dev/null || echo 0)"
+    if [[ "$size" -ge 1048576 ]]; then
+      log "Detector model already exists: $dest ($size bytes)"
+      return 0
+    fi
+
+    log "Detector model exists but is too small. Re-downloading: $dest ($size bytes)"
+    rm -f "$dest"
+  fi
+
+  local hf_token
+  hf_token="$(get_hf_token)"
+
+  local tmp="${dest}.part"
+  rm -f "$tmp"
+
+  log "Downloading detector model -> $dest"
+  log "Source: $url"
+
+  set +e
+
+  if [[ -n "$hf_token" && "$url" =~ huggingface\.co ]]; then
+    curl -fL \
+      --retry 5 \
+      --retry-delay 5 \
+      --retry-all-errors \
+      -H "Authorization: Bearer ${hf_token}" \
+      -o "$tmp" \
+      "$url"
+  else
+    curl -fL \
+      --retry 5 \
+      --retry-delay 5 \
+      --retry-all-errors \
+      -o "$tmp" \
+      "$url"
+  fi
+
+  local rc=$?
+  set -e
+
+  if [[ $rc -ne 0 ]]; then
+    log "DETECTOR MODEL DOWNLOAD FAILED: $url"
+    rm -f "$tmp"
+    MODEL_DL_FAILS+=("$url")
+
+    if [[ "$FAIL_ON_MODEL_DL" == "1" ]]; then
+      log "FAIL_ON_MODEL_DL=1 -> exiting due to detector model download failure."
+      exit 1
+    fi
+
+    return 0
+  fi
+
+  size="$(stat -c%s "$tmp" 2>/dev/null || echo 0)"
+  if [[ "$size" -lt 1048576 ]]; then
+    log "DETECTOR MODEL DOWNLOAD FAILED: file is too small: $tmp ($size bytes)"
+    rm -f "$tmp"
+    MODEL_DL_FAILS+=("$url")
+
+    if [[ "$FAIL_ON_MODEL_DL" == "1" ]]; then
+      log "FAIL_ON_MODEL_DL=1 -> exiting due to small detector model file."
+      exit 1
+    fi
+
+    return 0
+  fi
+
+  mv -f "$tmp" "$dest"
+  file "$dest" || true
+  ls -lh "$dest" || true
+}
+
+provisioning_restore_impact_detector_models() {
+  log "Restoring Impact Pack / Subpack detector models..."
+
+  local bbox_dir="${COMFY_WORKSPACE}/models/ultralytics/bbox"
+  local segm_dir="${COMFY_WORKSPACE}/models/ultralytics/segm"
+  local whitelist_dir="${COMFY_WORKSPACE}/user/default/ComfyUI-Impact-Subpack"
+
+  mkdir -p "$bbox_dir" "$segm_dir" "$whitelist_dir"
+
+  # BBOX detector models
+  provisioning_download_exact_file \
+    "https://huggingface.co/licyk/comfyui-extension-models/resolve/main/ComfyUI-Impact-Pack/face_yolov8m.pt" \
+    "$bbox_dir/face_yolov8m.pt"
+
+  provisioning_download_exact_file \
+    "https://huggingface.co/Tenofas/ComfyUI/resolve/d79945fb5c16e8aef8a1eb3ba1788d72152c6d96/ultralytics/bbox/Eyes.pt" \
+    "$bbox_dir/Eyes.pt"
+
+  # Some workflows expect this model in bbox even though it is a segm model.
+  provisioning_download_exact_file \
+    "https://huggingface.co/Bingsu/adetailer/resolve/main/person_yolov8m-seg.pt" \
+    "$bbox_dir/person_yolov8m-seg.pt"
+
+  # SEGM detector models
+  provisioning_download_exact_file \
+    "https://huggingface.co/Bingsu/adetailer/resolve/main/person_yolov8m-seg.pt" \
+    "$segm_dir/person_yolov8m-seg.pt"
+
+  provisioning_download_exact_file \
+    "https://huggingface.co/Bingsu/adetailer/resolve/main/person_yolov8s-seg.pt" \
+    "$segm_dir/person_yolov8s-seg.pt"
+
+  # Impact Subpack model whitelist. Overwrite deliberately so stale/broken entries do not survive.
+  cat > "$whitelist_dir/model-whitelist.txt" <<'EOF'
+bbox/face_yolov8m.pt
+bbox/Eyes.pt
+bbox/person_yolov8m-seg.pt
+segm/person_yolov8m-seg.pt
+segm/person_yolov8s-seg.pt
+EOF
+
+  log "Impact detector whitelist written: $whitelist_dir/model-whitelist.txt"
+
+  print_dir_summary "ultralytics bbox" "$bbox_dir"
+  print_dir_summary "ultralytics segm" "$segm_dir"
+}
+
 # ============================================================
 # CUSTOM NODES
 # ============================================================
@@ -614,6 +752,9 @@ provisioning_start() {
   provisioning_get_models_dir_urlonly "${COMFY_WORKSPACE}/models/diffusion_models" "${DIFFUSION_MODELS[@]}"
   provisioning_get_models_dir_urlonly "${COMFY_WORKSPACE}/models/text_encoders"    "${TEXT_ENCODER_MODELS[@]}"
   provisioning_get_models_dir_urlonly "${COMFY_WORKSPACE}/models/clip_vision"      "${CLIP_VISION_MODELS[@]}"
+
+  # Run this after all custom nodes and model downloads, because node provisioning can wipe/replace detector model folders.
+  provisioning_restore_impact_detector_models
 
   verify_critical_models
   print_summary
