@@ -118,6 +118,11 @@ MODEL_DL_FAILS=()
 
 FAIL_ON_MODEL_DL="${FAIL_ON_MODEL_DL:-0}"
 
+# Network / install robustness. Vast hosts sometimes reset GitHub connections.
+GIT_TIMEOUT="${GIT_TIMEOUT:-180}"
+GIT_RETRIES="${GIT_RETRIES:-3}"
+PIP_REQ_TIMEOUT="${PIP_REQ_TIMEOUT:-900}"
+
 # ============================================================
 # PATH / TOKEN HELPERS
 # ============================================================
@@ -166,6 +171,78 @@ pip_install() {
   fi
 
   pip install --no-cache-dir "$@"
+}
+
+run_with_retries() {
+  local attempts="$1"
+  shift
+  local timeout_sec="$1"
+  shift
+  local desc="$1"
+  shift
+
+  local n=1
+  local rc=0
+
+  while [[ "$n" -le "$attempts" ]]; do
+    log "$desc (attempt $n/$attempts, timeout=${timeout_sec}s)"
+
+    set +e
+    timeout "$timeout_sec" "$@"
+    rc=$?
+    set -e
+
+    if [[ $rc -eq 0 ]]; then
+      return 0
+    fi
+
+    log "$desc failed with rc=$rc"
+    sleep $((5 * n))
+    n=$((n + 1))
+  done
+
+  return "$rc"
+}
+
+pip_install_timed() {
+  local timeout_sec="$1"
+  shift
+
+  if [[ -x "$PIP_BIN" ]]; then
+    timeout "$timeout_sec" "$PIP_BIN" install --no-cache-dir "$@"
+    return $?
+  fi
+
+  if [[ -x "$PYTHON_BIN" ]]; then
+    timeout "$timeout_sec" "$PYTHON_BIN" -m pip install --no-cache-dir "$@"
+    return $?
+  fi
+
+  timeout "$timeout_sec" pip install --no-cache-dir "$@"
+}
+
+patch_node_requirements() {
+  local repo="$1"
+  local requirements="$2"
+
+  # Impact Pack's SAM2 dependency can spend forever building on some Vast images.
+  # Keep Impact Pack itself, but disable only the SAM2 source-build dependency.
+  if grep -q 'facebookresearch/sam2' "$requirements" 2>/dev/null; then
+    log "Patching requirements: disabling facebookresearch/sam2 in $requirements"
+    sed -i '/facebookresearch\/sam2/s/^/# /' "$requirements"
+  fi
+
+  # Avoid accidental duplicate comment prefixes after repeated provisioning attempts.
+  sed -i 's/^# # /# /' "$requirements" || true
+}
+
+provisioning_tune_git() {
+  log "Tuning git for unstable host networking..."
+  git config --global http.version HTTP/1.1 || true
+  git config --global http.lowSpeedLimit 1 || true
+  git config --global http.lowSpeedTime 60 || true
+  git config --global advice.detachedHead false || true
+  export GIT_TERMINAL_PROMPT=0
 }
 
 # ============================================================
@@ -643,38 +720,47 @@ provisioning_get_nodes() {
   local nodes_dir="${COMFY_WORKSPACE}/custom_nodes"
   mkdir -p "$nodes_dir"
 
+  provisioning_tune_git
+
   for repo in "${NODES[@]}"; do
     local dir="${repo##*/}"
     local path="${nodes_dir}/${dir}"
     local requirements="${path}/requirements.txt"
 
     if [[ -d "$path/.git" ]]; then
-      log "Updating node: $repo"
-      git -C "$path" pull --ff-only || true
+      if ! run_with_retries "$GIT_RETRIES" "$GIT_TIMEOUT" "Updating node: $repo" git -C "$path" pull --ff-only; then
+        log "Git pull failed or timed out. Keeping existing copy and continuing: $repo"
+        NODE_REQ_FAILS+=("$repo (git pull failed)")
+      fi
     else
-      log "Cloning node: $repo"
-      git clone --depth=1 --recursive "$repo" "$path"
+      log "Node not present, cloning: $repo"
+      rm -rf "$path"
+
+      if ! run_with_retries "$GIT_RETRIES" "$GIT_TIMEOUT" "Cloning node: $repo" git clone --depth=1 --recursive "$repo" "$path"; then
+        log "Git clone failed or timed out. Skipping this node and continuing: $repo"
+        rm -rf "$path"
+        NODE_REQ_FAILS+=("$repo (git clone failed)")
+        continue
+      fi
     fi
+
+    requirements="${path}/requirements.txt"
 
     if [[ -f "$requirements" ]]; then
       log "Installing requirements: $requirements"
-
-      # Impact Pack의 SAM2는 Vast/Comfy 템플릿에서 빌드가 오래 걸리거나 멈추는 경우가 많음.
-      # SAM2 줄만 빼고 나머지 requirements는 설치.
-      if [[ "$repo" == "https://github.com/ltdrdata/ComfyUI-Impact-Pack" ]]; then
-        log "Patching Impact Pack requirements: disabling facebookresearch/sam2"
-        sed -i '/facebookresearch\/sam2/s/^/# /' "$requirements"
-      fi
+      patch_node_requirements "$repo" "$requirements"
 
       set +e
-      pip_install -r "$requirements"
+      pip_install_timed "$PIP_REQ_TIMEOUT" -r "$requirements"
       local rc=$?
       set -e
 
       if [[ $rc -ne 0 ]]; then
-        log "Node requirements FAILED: $repo"
-        NODE_REQ_FAILS+=("$repo")
+        log "Node requirements FAILED or timed out with rc=$rc: $repo"
+        NODE_REQ_FAILS+=("$repo (requirements failed rc=$rc)")
       fi
+    else
+      log "No requirements.txt for node: $repo"
     fi
   done
 }
