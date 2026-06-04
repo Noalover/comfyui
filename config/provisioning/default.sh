@@ -659,6 +659,13 @@ provisioning_get_nodes() {
     if [[ -f "$requirements" ]]; then
       log "Installing requirements: $requirements"
 
+      # Impact Pack의 SAM2는 Vast/Comfy 템플릿에서 빌드가 오래 걸리거나 멈추는 경우가 많음.
+      # SAM2 줄만 빼고 나머지 requirements는 설치.
+      if [[ "$repo" == "https://github.com/ltdrdata/ComfyUI-Impact-Pack" ]]; then
+        log "Patching Impact Pack requirements: disabling facebookresearch/sam2"
+        sed -i '/facebookresearch\/sam2/s/^/# /' "$requirements"
+      fi
+
       set +e
       pip_install -r "$requirements"
       local rc=$?
