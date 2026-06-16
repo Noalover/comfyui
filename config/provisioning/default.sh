@@ -90,7 +90,7 @@ CONTROLNET_MODELS=(
 DIFFUSION_MODELS=(
   #"https://civitai.com/api/download/models/2513182?type=Model&format=SafeTensor&size=pruned&fp=fp8"
   #"https://civitai.com/api/download/models/2957298?type=Model&format=SafeTensor&size=pruned&fp=bf16"
-  "https://civitai.com/api/download/models/2994532?fileId=2874152"
+  "https://civitai.com/api/download/models/3018803?fileId=2897693"
   "https://civitai.com/api/download/models/2983680?fileId=2863158"
   "https://huggingface.co/circlestone-labs/Anima/resolve/main/split_files/diffusion_models/anima-base-v1.0.safetensors"
 )
