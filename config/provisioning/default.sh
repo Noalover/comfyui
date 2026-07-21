@@ -94,6 +94,7 @@ DIFFUSION_MODELS=(
   #"https://civitai.com/api/download/models/2983680?fileId=2863158"
   #"https://huggingface.co/circlestone-labs/Anima/resolve/main/split_files/diffusion_models/anima-base-v1.0.safetensors"
   "https://civitai.red/api/download/models/3075206?fileId=2954323"
+  "https://civitai.red/api/download/models/3112659?fileId=2992771"
 )
 
 TEXT_ENCODER_MODELS=(
