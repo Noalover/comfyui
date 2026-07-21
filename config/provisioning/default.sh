@@ -90,14 +90,16 @@ CONTROLNET_MODELS=(
 DIFFUSION_MODELS=(
   #"https://civitai.com/api/download/models/2513182?type=Model&format=SafeTensor&size=pruned&fp=fp8"
   #"https://civitai.com/api/download/models/2957298?type=Model&format=SafeTensor&size=pruned&fp=bf16"
-  "https://civitai.com/api/download/models/3018803?fileId=2897693"
-  "https://civitai.com/api/download/models/2983680?fileId=2863158"
-  "https://huggingface.co/circlestone-labs/Anima/resolve/main/split_files/diffusion_models/anima-base-v1.0.safetensors"
+  "https://civitai.red/api/download/models/3145814?fileId=3026258"
+  #"https://civitai.com/api/download/models/2983680?fileId=2863158"
+  #"https://huggingface.co/circlestone-labs/Anima/resolve/main/split_files/diffusion_models/anima-base-v1.0.safetensors"
+  "https://civitai.red/api/download/models/3075206?fileId=2954323"
 )
 
 TEXT_ENCODER_MODELS=(
   "https://huggingface.co/circlestone-labs/Anima/resolve/main/split_files/text_encoders/qwen_3_06b_base.safetensors?download=true"
   "https://huggingface.co/Qwen/Qwen3-4B-GGUF/resolve/main/Qwen3-4B-Q6_K.gguf"
+  "https://huggingface.co/Comfy-Org/Krea-2/blob/main/text_encoders/qwen3vl_4b_fp8_scaled.safetensors"
 )
 
 # ============================================================
