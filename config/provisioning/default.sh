@@ -136,9 +136,29 @@ PREFLIGHT_ATTEMPTS="${PREFLIGHT_ATTEMPTS:-2}"
 PREFLIGHT_CONNECT_TIMEOUT="${PREFLIGHT_CONNECT_TIMEOUT:-8}"
 PREFLIGHT_TOTAL_TIMEOUT="${PREFLIGHT_TOTAL_TIMEOUT:-25}"
 
-# Set to 0 to only report free disk space.
-# Example: PREFLIGHT_MIN_FREE_GB=120 to reject instances with less than 120 GiB free.
-PREFLIGHT_MIN_FREE_GB="${PREFLIGHT_MIN_FREE_GB:-0}"
+# Reject instances that have too little free disk before large model downloads.
+# A 130 GB Vast volume usually has less than 130 GiB actually free because the image also uses space.
+PREFLIGHT_MIN_FREE_GB="${PREFLIGHT_MIN_FREE_GB:-100}"
+
+# Remove the old full-size Hugging Face cache created by earlier versions of this script.
+# This cache duplicated every downloaded model. Set to 0 only if you intentionally need it.
+CLEAN_LEGACY_HF_CACHE="${CLEAN_LEGACY_HF_CACHE:-1}"
+LEGACY_HF_CACHE_DIR="${LEGACY_HF_CACHE_DIR:-/workspace/.hf_cache}"
+
+# hf_hub_download(local_dir=...) uses this directory for the current file's
+# resumable partial data and local metadata. It is deleted after each HF file.
+HF_DOWNLOAD_TMP_DIR="${HF_DOWNLOAD_TMP_DIR:-/workspace/.hf_download_tmp}"
+
+# Contain every Hugging Face/Xet cache created by this script in one disposable directory.
+# This prevents writes to /root/.cache/huggingface.
+HF_RUNTIME_CACHE_DIR="${HF_RUNTIME_CACHE_DIR:-/workspace/.hf_runtime_cache}"
+
+# Remove a default-path Xet cache left by the previous script version.
+LEGACY_DEFAULT_HF_XET_CACHE="${LEGACY_DEFAULT_HF_XET_CACHE:-${HOME:-/root}/.cache/huggingface/xet}"
+
+# Longer timeouts are safer on inconsistent Vast hosts.
+HF_ETAG_TIMEOUT="${HF_ETAG_TIMEOUT:-30}"
+HF_DOWNLOAD_TIMEOUT="${HF_DOWNLOAD_TIMEOUT:-60}"
 
 PREFLIGHT_FAILURES=()
 
@@ -265,6 +285,66 @@ provisioning_tune_git() {
 }
 
 # ============================================================
+# HUGGING FACE TEMP/CACHE MANAGEMENT
+# ============================================================
+
+provisioning_cleanup_legacy_hf_cache() {
+  if [[ "$CLEAN_LEGACY_HF_CACHE" != "1" ]]; then
+    log "Legacy HF cache cleanup disabled (CLEAN_LEGACY_HF_CACHE=$CLEAN_LEGACY_HF_CACHE)"
+    return 0
+  fi
+
+  local path
+  for path in "$LEGACY_HF_CACHE_DIR" "$LEGACY_DEFAULT_HF_XET_CACHE"; do
+    [[ -z "$path" ]] && continue
+    [[ ! -d "$path" ]] && continue
+
+    local cache_size
+    cache_size="$(du -sh "$path" 2>/dev/null | awk '{print $1}' || true)"
+    log "Removing legacy HF cache: $path (${cache_size:-unknown})"
+    rm -rf -- "$path"
+  done
+}
+
+provisioning_configure_hf_runtime() {
+  mkdir -p "$HF_DOWNLOAD_TMP_DIR" "$HF_RUNTIME_CACHE_DIR"
+
+  # huggingface_hub reads these variables when imported by each Python subprocess.
+  export HF_HOME="$HF_RUNTIME_CACHE_DIR"
+  export HF_HUB_CACHE="$HF_RUNTIME_CACHE_DIR/hub"
+  export HF_XET_CACHE="$HF_RUNTIME_CACHE_DIR/xet"
+  export HF_ASSETS_CACHE="$HF_RUNTIME_CACHE_DIR/assets"
+  export HF_TOKEN_PATH="$HF_RUNTIME_CACHE_DIR/token"
+
+  # The Xet chunk cache is unnecessary for one-shot Vast downloads.
+  export HF_XET_CHUNK_CACHE_SIZE_BYTES=0
+  export HF_XET_SHARD_CACHE_SIZE_LIMIT=0
+
+  export HF_HUB_ETAG_TIMEOUT="$HF_ETAG_TIMEOUT"
+  export HF_HUB_DOWNLOAD_TIMEOUT="$HF_DOWNLOAD_TIMEOUT"
+}
+
+provisioning_cleanup_hf_artifacts() {
+  local path
+  for path in "$HF_DOWNLOAD_TMP_DIR" "$HF_RUNTIME_CACHE_DIR"; do
+    [[ -z "$path" ]] && continue
+    [[ ! -d "$path" ]] && continue
+
+    local size
+    size="$(du -sh "$path" 2>/dev/null | awk '{print $1}' || true)"
+    log "Removing disposable HF data: $path (${size:-unknown})"
+    rm -rf -- "$path"
+  done
+}
+
+provisioning_hf_exit_cleanup() {
+  # EXIT runs after normal completion, handled failures, Ctrl+C and SIGTERM.
+  # SIGKILL or an abrupt host loss cannot run shell cleanup; the next run
+  # deletes these directories at startup.
+  provisioning_cleanup_hf_artifacts || true
+}
+
+# ============================================================
 # HOST PREFLIGHT
 # ============================================================
 
@@ -366,7 +446,7 @@ provisioning_host_preflight() {
 
   # DNS resolution
   local domain
-  for domain in github.com huggingface.co pypi.org civitai.com; do
+  for domain in github.com huggingface.co pypi.org civitai.com region1.v2.argotunnel.com; do
     if getent hosts "$domain" >/dev/null 2>&1; then
       log "[HOST CHECK: OK] DNS: $domain"
     else
@@ -468,19 +548,20 @@ provisioning_get_pip_packages() {
 # HF_TRANSFER SUPPORT
 # ============================================================
 
-provisioning_enable_hf_transfer() {
-  log "Enabling hf_transfer best-effort..."
+provisioning_enable_hf_xet() {
+  log "Enabling Hugging Face high-performance Xet downloads (best-effort)..."
 
   set +e
-  pip_install -q hf_transfer huggingface_hub
+  pip_install -q huggingface_hub hf_xet
   local rc=$?
   set -e
 
   if [[ $rc -ne 0 ]]; then
-    log "hf_transfer/huggingface_hub install failed. Continuing with fallback."
+    log "huggingface_hub/hf_xet install failed. Continuing with aria2/wget/curl fallback."
   else
-    export HF_HUB_ENABLE_HF_TRANSFER=1
-    log "hf_transfer enabled"
+    unset HF_HUB_ENABLE_HF_TRANSFER || true
+    export HF_XET_HIGH_PERFORMANCE=1
+    log "HF Xet high-performance mode enabled"
   fi
 }
 
@@ -508,43 +589,137 @@ provisioning_hf_transfer_download() {
     return 1
   fi
 
-  mkdir -p "$dir"
+  mkdir -p "$dir" "$HF_DOWNLOAD_TMP_DIR"
 
-  log "HF attempt: repo=$repo_id rev=$rev file=$file_path -> $dir"
+  log "HF direct attempt: repo=$repo_id rev=$rev file=$file_path -> $dir"
+  log "HF temporary/resume directory: $HF_DOWNLOAD_TMP_DIR"
 
   set +e
-  "$PYTHON_BIN" - <<'PY' "$repo_id" "$rev" "$file_path" "$dir"
+  "$PYTHON_BIN" - "$repo_id" "$rev" "$file_path" "$dir" "$HF_DOWNLOAD_TMP_DIR" <<'PY'
+import json
 import os
+import struct
 import sys
-import shutil
 
-repo_id, rev, file_path, out_dir = sys.argv[1:5]
+repo_id, rev, file_path, out_dir, temp_dir = sys.argv[1:6]
 token = os.environ.get("HF_TOKEN") or os.environ.get("HUGGINGFACE_HUB_TOKEN") or None
 
 try:
-    from huggingface_hub import hf_hub_download
+    from huggingface_hub import get_hf_file_metadata, hf_hub_download, hf_hub_url
 except Exception as e:
     print("[provision] huggingface_hub not available:", repr(e))
     sys.exit(2)
 
+os.makedirs(out_dir, exist_ok=True)
+os.makedirs(temp_dir, exist_ok=True)
+
+dst = os.path.join(out_dir, os.path.basename(file_path))
+expected_size = None
+
 try:
-    local_path = hf_hub_download(
+    metadata_url = hf_hub_url(
+        repo_id=repo_id,
+        filename=file_path,
+        revision=rev,
+    )
+    metadata = get_hf_file_metadata(metadata_url, token=token)
+    expected_size = metadata.size
+except Exception as e:
+    print("[provision] HF metadata check warning:", repr(e))
+
+def valid_safetensors_file(path: str) -> bool:
+    """Check that a safetensors header and its declared data exactly fit the file."""
+    try:
+        file_size = os.path.getsize(path)
+        with open(path, "rb") as f:
+            raw = f.read(8)
+            if len(raw) != 8:
+                return False
+
+            header_size = struct.unpack("<Q", raw)[0]
+            if header_size <= 0 or header_size > file_size - 8:
+                return False
+
+            header_raw = f.read(header_size)
+            header = json.loads(header_raw)
+
+        max_end = 0
+        for key, value in header.items():
+            if key == "__metadata__":
+                continue
+            offsets = value.get("data_offsets")
+            if (
+                not isinstance(offsets, list)
+                or len(offsets) != 2
+                or not all(isinstance(x, int) for x in offsets)
+            ):
+                return False
+            start, end = offsets
+            if start < 0 or end < start:
+                return False
+            max_end = max(max_end, end)
+
+        return 8 + header_size + max_end == file_size
+    except Exception:
+        return False
+
+
+if os.path.isfile(dst):
+    actual_size = os.path.getsize(dst)
+
+    if expected_size is not None and actual_size == expected_size:
+        print(
+            f"[provision] HF file already complete, skipping: "
+            f"{dst} ({actual_size} bytes)"
+        )
+        sys.exit(0)
+
+    # When the metadata request is temporarily unavailable, do not trust a file
+    # merely because it is larger than 1 MB. Safetensors contains enough offset
+    # information to detect a truncated file without loading model tensors.
+    if expected_size is None and dst.endswith(".safetensors") and valid_safetensors_file(dst):
+        print(
+            f"[provision] HF metadata unavailable, but safetensors structure is complete; "
+            f"skipping: {dst} ({actual_size} bytes)"
+        )
+        sys.exit(0)
+
+    print(
+        f"[provision] Existing HF file is incomplete, unverifiable, or mismatched; "
+        f"re-downloading: {dst} "
+        f"(actual={actual_size}, expected={expected_size})"
+    )
+    os.remove(dst)
+
+try:
+    downloaded_path = hf_hub_download(
         repo_id=repo_id,
         filename=file_path,
         revision=rev,
         token=token,
-        cache_dir="/workspace/.hf_cache",
+        local_dir=temp_dir,
     )
 
-    os.makedirs(out_dir, exist_ok=True)
-    dst = os.path.join(out_dir, os.path.basename(file_path))
-    shutil.copy2(local_path, dst)
+    downloaded_size = os.path.getsize(downloaded_path)
 
-    print(f"[provision] HF downloaded OK -> {dst}")
+    if expected_size is not None and downloaded_size != expected_size:
+        raise OSError(
+            f"downloaded size mismatch: actual={downloaded_size}, "
+            f"expected={expected_size}"
+        )
+
+    if downloaded_size < 1024 * 1024:
+        raise OSError(f"downloaded file is too small: {downloaded_size} bytes")
+
+    # Atomic rename on the same /workspace filesystem: no second full-size copy.
+    os.replace(downloaded_path, dst)
+
+    print(f"[provision] HF downloaded directly OK -> {dst}")
+    print(f"[provision] HF final size: {downloaded_size} bytes")
     sys.exit(0)
 
 except Exception as e:
-    print("[provision] HF failed:", repr(e))
+    print("[provision] HF direct download failed:", repr(e))
     sys.exit(1)
 PY
   local rc=$?
@@ -660,12 +835,20 @@ provisioning_download_to_dir() {
   # Hugging Face
   # ------------------------------
   if [[ "$url" =~ huggingface\.co ]]; then
+    provisioning_configure_hf_runtime
+
     if provisioning_hf_transfer_download "$dir" "$final_url"; then
       validate_downloaded_file_in_dir "$dir" "$before_list" || true
+
+      # The completed model has already been moved to its final ComfyUI folder.
+      # Remove local_dir metadata and every contained Xet/HF cache immediately.
+      provisioning_cleanup_hf_artifacts
       rm -f "$before_list"
       return 0
     else
-      log "HF python downloader failed. Falling back to aria2/wget/curl."
+      log "HF Python downloader failed. Removing its partial/cache data before fallback."
+      provisioning_cleanup_hf_artifacts
+      log "Falling back to an atomic aria2/wget/curl download."
     fi
   fi
 
@@ -711,29 +894,57 @@ provisioning_download_to_dir() {
   local name="${url%%\?*}"
   name="${name##*/}"
 
+  local final_path="${dir}/${name}"
+  local part_name="${name}.part"
+  local part_path="${dir}/${part_name}"
+
   set +e
 
   if command -v aria2c >/dev/null 2>&1; then
     if [[ -n "$auth_header" ]]; then
-      aria2c -x 16 -s 16 -k 1M --header="$auth_header" -o "$name" -d "$dir" "$final_url"
+      aria2c \
+        --continue=true \
+        --auto-file-renaming=false \
+        --allow-overwrite=true \
+        -x 16 -s 16 -k 1M \
+        --header="$auth_header" \
+        -o "$part_name" -d "$dir" "$final_url"
     else
-      aria2c -x 16 -s 16 -k 1M -o "$name" -d "$dir" "$final_url"
+      aria2c \
+        --continue=true \
+        --auto-file-renaming=false \
+        --allow-overwrite=true \
+        -x 16 -s 16 -k 1M \
+        -o "$part_name" -d "$dir" "$final_url"
     fi
     local rc=$?
 
   elif command -v wget >/dev/null 2>&1; then
     if [[ -n "$auth_header" ]]; then
-      wget --header="$auth_header" --content-disposition --show-progress -qnc -P "$dir" "$final_url"
+      wget --continue --header="$auth_header" -O "$part_path" "$final_url"
     else
-      wget --content-disposition --show-progress -qnc -P "$dir" "$final_url"
+      wget --continue -O "$part_path" "$final_url"
     fi
     local rc=$?
 
   else
     if [[ -n "$auth_header" ]]; then
-      curl -fL -H "$auth_header" -o "$dir/$name" "$final_url"
+      curl -fL \
+        --retry 5 \
+        --retry-delay 5 \
+        --retry-all-errors \
+        -H "$auth_header" \
+        -C - \
+        -o "$part_path" \
+        "$final_url"
     else
-      curl -fL -o "$dir/$name" "$final_url"
+      curl -fL \
+        --retry 5 \
+        --retry-delay 5 \
+        --retry-all-errors \
+        -C - \
+        -o "$part_path" \
+        "$final_url"
     fi
     local rc=$?
   fi
@@ -744,6 +955,22 @@ provisioning_download_to_dir() {
     rm -f "$before_list"
     return "$rc"
   fi
+
+  if [[ ! -f "$part_path" ]]; then
+    log "Fallback download reported success but part file is missing: $part_path"
+    rm -f "$before_list"
+    return 1
+  fi
+
+  local part_size
+  part_size="$(stat -c%s "$part_path" 2>/dev/null || echo 0)"
+  if [[ "$part_size" -lt 1048576 ]]; then
+    log "Fallback download is too small: $part_path ($part_size bytes)"
+    rm -f "$before_list"
+    return 1
+  fi
+
+  mv -f -- "$part_path" "$final_path"
 
   validate_downloaded_file_in_dir "$dir" "$before_list" || true
   rm -f "$before_list"
@@ -1025,12 +1252,16 @@ print_summary() {
 provisioning_start() {
   normalize_comfy_paths
 
+  provisioning_cleanup_legacy_hf_cache
+  provisioning_cleanup_hf_artifacts
+  trap provisioning_hf_exit_cleanup EXIT
+
   provisioning_get_apt_packages
   provisioning_host_preflight
   provisioning_get_nodes
   provisioning_get_pip_packages
 
-  provisioning_enable_hf_transfer
+  provisioning_enable_hf_xet
 
   provisioning_get_models_dir_urlonly "${COMFY_WORKSPACE}/models/checkpoints"      "${CHECKPOINT_MODELS[@]}"
   provisioning_get_models_dir_urlonly "${COMFY_WORKSPACE}/models/unet"             "${UNET_MODELS[@]}"
