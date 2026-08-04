@@ -128,6 +128,20 @@ GIT_TIMEOUT="${GIT_TIMEOUT:-180}"
 GIT_RETRIES="${GIT_RETRIES:-3}"
 PIP_REQ_TIMEOUT="${PIP_REQ_TIMEOUT:-900}"
 
+# Host preflight.
+# 1: run checks and abort provisioning when the host cannot reach required services.
+# 0: skip the checks.
+HOST_PREFLIGHT="${HOST_PREFLIGHT:-1}"
+PREFLIGHT_ATTEMPTS="${PREFLIGHT_ATTEMPTS:-2}"
+PREFLIGHT_CONNECT_TIMEOUT="${PREFLIGHT_CONNECT_TIMEOUT:-8}"
+PREFLIGHT_TOTAL_TIMEOUT="${PREFLIGHT_TOTAL_TIMEOUT:-25}"
+
+# Set to 0 to only report free disk space.
+# Example: PREFLIGHT_MIN_FREE_GB=120 to reject instances with less than 120 GiB free.
+PREFLIGHT_MIN_FREE_GB="${PREFLIGHT_MIN_FREE_GB:-0}"
+
+PREFLIGHT_FAILURES=()
+
 # ============================================================
 # PATH / TOKEN HELPERS
 # ============================================================
@@ -248,6 +262,181 @@ provisioning_tune_git() {
   git config --global http.lowSpeedTime 60 || true
   git config --global advice.detachedHead false || true
   export GIT_TERMINAL_PROMPT=0
+}
+
+# ============================================================
+# HOST PREFLIGHT
+# ============================================================
+
+preflight_record_failure() {
+  local message="$1"
+  PREFLIGHT_FAILURES+=("$message")
+  log "[HOST CHECK: FAIL] $message"
+}
+
+preflight_retry_command() {
+  local label="$1"
+  shift
+
+  local attempt=1
+  local rc=1
+
+  while [[ "$attempt" -le "$PREFLIGHT_ATTEMPTS" ]]; do
+    log "[HOST CHECK] $label (attempt $attempt/$PREFLIGHT_ATTEMPTS)"
+
+    set +e
+    timeout "$PREFLIGHT_TOTAL_TIMEOUT" "$@"
+    rc=$?
+    set -e
+
+    if [[ $rc -eq 0 ]]; then
+      log "[HOST CHECK: OK] $label"
+      return 0
+    fi
+
+    log "[HOST CHECK] $label failed with rc=$rc"
+    sleep $((3 * attempt))
+    attempt=$((attempt + 1))
+  done
+
+  preflight_record_failure "$label"
+  return 1
+}
+
+preflight_https() {
+  local label="$1"
+  local url="$2"
+
+  preflight_retry_command \
+    "$label" \
+    curl -fsSL \
+      --connect-timeout "$PREFLIGHT_CONNECT_TIMEOUT" \
+      --max-time "$PREFLIGHT_TOTAL_TIMEOUT" \
+      --retry 0 \
+      -A "Mozilla/5.0" \
+      -o /dev/null \
+      "$url"
+}
+
+provisioning_host_preflight() {
+  if [[ "$HOST_PREFLIGHT" != "1" ]]; then
+    log "Host preflight disabled (HOST_PREFLIGHT=$HOST_PREFLIGHT)"
+    return 0
+  fi
+
+  log "============================================================"
+  log "HOST PREFLIGHT START"
+  log "This check should finish in roughly 30-90 seconds."
+  log "============================================================"
+
+  PREFLIGHT_FAILURES=()
+  rm -f /workspace/HOST_PREFLIGHT_FAILED /workspace/HOST_PREFLIGHT_PASSED
+
+  # GPU visibility
+  if command -v nvidia-smi >/dev/null 2>&1; then
+    if nvidia-smi >/dev/null 2>&1; then
+      log "[HOST CHECK: OK] NVIDIA GPU is visible"
+      nvidia-smi \
+        --query-gpu=name,uuid,memory.total,driver_version \
+        --format=csv,noheader || true
+    else
+      preflight_record_failure "nvidia-smi exists but cannot access the GPU"
+    fi
+  else
+    preflight_record_failure "nvidia-smi command is missing"
+  fi
+
+  # Free disk report / optional rejection threshold
+  local free_kb=0
+  local free_gb=0
+
+  free_kb="$(df -Pk "$WORKSPACE" 2>/dev/null | awk 'NR==2 {print $4}' || echo 0)"
+  if [[ "$free_kb" =~ ^[0-9]+$ ]]; then
+    free_gb=$((free_kb / 1024 / 1024))
+  fi
+
+  log "[HOST CHECK] Free disk at $WORKSPACE: ${free_gb} GiB"
+
+  if [[ "$PREFLIGHT_MIN_FREE_GB" =~ ^[0-9]+$ ]] \
+    && [[ "$PREFLIGHT_MIN_FREE_GB" -gt 0 ]] \
+    && [[ "$free_gb" -lt "$PREFLIGHT_MIN_FREE_GB" ]]; then
+    preflight_record_failure \
+      "free disk ${free_gb} GiB is below PREFLIGHT_MIN_FREE_GB=${PREFLIGHT_MIN_FREE_GB}"
+  fi
+
+  # DNS resolution
+  local domain
+  for domain in github.com huggingface.co pypi.org civitai.com; do
+    if getent hosts "$domain" >/dev/null 2>&1; then
+      log "[HOST CHECK: OK] DNS: $domain"
+    else
+      preflight_record_failure "DNS lookup failed: $domain"
+    fi
+  done
+
+  # GitHub: test the same Git smart-HTTP path used by git clone.
+  preflight_retry_command \
+    "GitHub git clone path" \
+    bash -lc \
+      'git -c http.version=HTTP/1.1 ls-remote https://github.com/ltdrdata/ComfyUI-Manager.git HEAD >/dev/null' \
+    || true
+
+  # Other services used by this provisioning script.
+  preflight_https \
+    "PyPI HTTPS" \
+    "https://pypi.org/simple/pip/" || true
+
+  preflight_https \
+    "Hugging Face HTTPS" \
+    "https://huggingface.co/api/models/Comfy-Org/MiniMax-H3" || true
+
+  preflight_https \
+    "Civitai HTTPS" \
+    "https://civitai.com/api/v1/models?limit=1" || true
+
+  local result_file="/workspace/host_preflight_result.txt"
+
+  if [[ ${#PREFLIGHT_FAILURES[@]} -gt 0 ]]; then
+    {
+      echo "result=FAIL"
+      echo "checked_at=$(date --iso-8601=seconds 2>/dev/null || date)"
+      echo "free_disk_gib=$free_gb"
+      echo "failures=${#PREFLIGHT_FAILURES[@]}"
+      for x in "${PREFLIGHT_FAILURES[@]}"; do
+        echo "- $x"
+      done
+    } > "$result_file"
+
+    touch /workspace/HOST_PREFLIGHT_FAILED
+
+    log "============================================================"
+    log "HOST PREFLIGHT FAILED"
+    for x in "${PREFLIGHT_FAILURES[@]}"; do
+      log "  - $x"
+    done
+    log "Result file: $result_file"
+    log "This host is unsuitable for this provisioning run."
+    log "Destroy this Vast instance and choose another host."
+    log "Provisioning aborted before custom-node/model downloads."
+    log "============================================================"
+
+    exit 90
+  fi
+
+  {
+    echo "result=PASS"
+    echo "checked_at=$(date --iso-8601=seconds 2>/dev/null || date)"
+    echo "free_disk_gib=$free_gb"
+    echo "failures=0"
+  } > "$result_file"
+
+  touch /workspace/HOST_PREFLIGHT_PASSED
+
+  log "============================================================"
+  log "HOST PREFLIGHT PASSED"
+  log "Result file: $result_file"
+  log "Continuing provisioning."
+  log "============================================================"
 }
 
 # ============================================================
@@ -837,6 +1026,7 @@ provisioning_start() {
   normalize_comfy_paths
 
   provisioning_get_apt_packages
+  provisioning_host_preflight
   provisioning_get_nodes
   provisioning_get_pip_packages
 
