@@ -57,7 +57,7 @@ NODES=(
 
 CHECKPOINT_MODELS=(
   #"https://civitai.com/api/download/models/1555027?type=Model&format=SafeTensor"
-  "https://civitai.com/api/download/models/2167369?type=Model&format=SafeTensor&size=pruned&fp=fp16"
+  #"https://civitai.com/api/download/models/2167369?type=Model&format=SafeTensor&size=pruned&fp=fp16"
 )
 
 CLIP_VISION_MODELS=(
@@ -75,11 +75,13 @@ VAE_MODELS=(
   "https://civitai.com/api/download/models/155933?type=Model&format=SafeTensor"
   "https://huggingface.co/circlestone-labs/Anima/resolve/main/split_files/vae/qwen_image_vae.safetensors?download=true"
   "https://huggingface.co/Tongyi-MAI/Z-Image-Turbo/resolve/main/vae/diffusion_pytorch_model.safetensors"
+  "https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/vae/minimax_h3_audio_vae_fp32.safetensors"
+  "https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/vae/minimax_h3_video_vae_fp16.safetensors"
 )
 
 UPSCALE_MODELS=(
-  "https://huggingface.co/Kim2091/2x-AnimeSharpV4/resolve/main/2x-AnimeSharpV4_RCAN.safetensors"
-  "https://huggingface.co/uwg/upscaler/resolve/main/ESRGAN/4x_NMKD-Siax_200k.pth"
+  #"https://huggingface.co/Kim2091/2x-AnimeSharpV4/resolve/main/2x-AnimeSharpV4_RCAN.safetensors"
+  #"https://huggingface.co/uwg/upscaler/resolve/main/ESRGAN/4x_NMKD-Siax_200k.pth"
 )
 
 CONTROLNET_MODELS=(
@@ -88,19 +90,19 @@ CONTROLNET_MODELS=(
 )
 
 DIFFUSION_MODELS=(
-  #"https://civitai.com/api/download/models/2513182?type=Model&format=SafeTensor&size=pruned&fp=fp8"
-  #"https://civitai.com/api/download/models/2957298?type=Model&format=SafeTensor&size=pruned&fp=bf16"
   "https://civitai.com/api/download/models/3126581?fileId=3007030"
-  #"https://civitai.com/api/download/models/2983680?fileId=2863158"
   #"https://huggingface.co/circlestone-labs/Anima/resolve/main/split_files/diffusion_models/anima-base-v1.0.safetensors"
-  "https://civitai.com/api/download/models/3075206?fileId=2954323"
-  "https://civitai.com/api/download/models/3112659?fileId=2992771"
+  #"https://civitai.com/api/download/models/3075206?fileId=2954323"
+  #"https://civitai.com/api/download/models/3112659?fileId=2992771"
+  "https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/diffusion_models/minimax_h3_fl2va_pruned_int8_convrot.safetensors"
+  "https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/diffusion_models/minimax_h3_ref2va_pruned_int8_convrot.safetensors"
 )
 
 TEXT_ENCODER_MODELS=(
   "https://huggingface.co/circlestone-labs/Anima/resolve/main/split_files/text_encoders/qwen_3_06b_base.safetensors?download=true"
-  "https://huggingface.co/Qwen/Qwen3-4B-GGUF/resolve/main/Qwen3-4B-Q6_K.gguf"
-  "https://huggingface.co/Comfy-Org/Krea-2/resolve/main/text_encoders/qwen3vl_4b_fp8_scaled.safetensors"
+  #"https://huggingface.co/Qwen/Qwen3-4B-GGUF/resolve/main/Qwen3-4B-Q6_K.gguf"
+  #"https://huggingface.co/Comfy-Org/Krea-2/resolve/main/text_encoders/qwen3vl_4b_fp8_scaled.safetensors"
+  "https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/text_encoders/qwen3vl_32b_minimax_h3_int8_convrot.safetensors"
 )
 
 # ============================================================
