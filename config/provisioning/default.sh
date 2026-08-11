@@ -53,11 +53,18 @@ NODES=(
   "https://github.com/kohya-ss/ComfyUI-Anima-LLLite"
   "https://github.com/ltdrdata/ComfyUI-Impact-Pack"
   "https://github.com/ltdrdata/ComfyUI-Impact-Subpack"
+  "https://github.com/yolain/ComfyUI-Easy-Sam3"
 )
 
 CHECKPOINT_MODELS=(
   #"https://civitai.com/api/download/models/1555027?type=Model&format=SafeTensor"
   #"https://civitai.com/api/download/models/2167369?type=Model&format=SafeTensor&size=pruned&fp=fp16"
+)
+
+# SAM 3.1: keep one physical copy in models/checkpoints for native ComfyUI.
+# Easy-SAM3 expects the model under models/sam3, so a symlink is created later.
+SAM31_MODELS=(
+  "https://huggingface.co/Comfy-Org/sam3.1/resolve/main/checkpoints/sam3.1_multiplex_fp16.safetensors"
 )
 
 CLIP_VISION_MODELS=(
@@ -1002,6 +1009,49 @@ provisioning_get_models_dir_urlonly() {
 
 
 # ============================================================
+# SAM 3.1 / EASY-SAM3 MODEL LINK
+# ============================================================
+
+provisioning_link_sam31_model() {
+  local filename="sam3.1_multiplex_fp16.safetensors"
+  local src="${COMFY_WORKSPACE}/models/checkpoints/${filename}"
+  local sam3_dir="${COMFY_WORKSPACE}/models/sam3"
+  local dst="${sam3_dir}/${filename}"
+
+  mkdir -p "$sam3_dir"
+
+  if [[ ! -f "$src" ]]; then
+    log "SAM 3.1 source model missing; Easy-SAM3 symlink not created: $src"
+    return 0
+  fi
+
+  local src_size
+  src_size="$(stat -c%s "$src" 2>/dev/null || echo 0)"
+  if [[ ! "$src_size" =~ ^[0-9]+$ ]] || [[ "$src_size" -lt 1048576 ]]; then
+    log "SAM 3.1 source model looks invalid or incomplete; symlink not created: $src ($src_size bytes)"
+    return 0
+  fi
+
+  # If an older provisioning run left a second physical copy here, replace only
+  # this exact SAM 3.1 filename with a symlink so the 1.75 GB model is stored once.
+  if [[ -e "$dst" && ! -L "$dst" ]]; then
+    local dst_size
+    dst_size="$(stat -c%s "$dst" 2>/dev/null || echo 0)"
+    log "Replacing duplicate Easy-SAM3 SAM 3.1 copy with symlink: $dst ($dst_size bytes)"
+    rm -f -- "$dst"
+  fi
+
+  ln -sfn "$src" "$dst"
+
+  if [[ -L "$dst" && -e "$dst" ]]; then
+    log "SAM 3.1 symlink ready: $dst -> $(readlink "$dst")"
+    ls -lh "$src" "$dst" || true
+  else
+    log "WARNING: SAM 3.1 symlink verification failed: $dst"
+  fi
+}
+
+# ============================================================
 # IMPACT PACK / SUBPACK DETECTOR MODEL RESTORE
 # ============================================================
 
@@ -1209,13 +1259,14 @@ verify_critical_models() {
   log "Verifying critical model directories..."
 
   print_dir_summary "checkpoints" "${COMFY_WORKSPACE}/models/checkpoints"
+  print_dir_summary "sam3" "${COMFY_WORKSPACE}/models/sam3"
   print_dir_summary "vae" "${COMFY_WORKSPACE}/models/vae"
   print_dir_summary "upscale_models" "${COMFY_WORKSPACE}/models/upscale_models"
   print_dir_summary "diffusion_models" "${COMFY_WORKSPACE}/models/diffusion_models"
   print_dir_summary "text_encoders" "${COMFY_WORKSPACE}/models/text_encoders"
 
   local checkpoint_count
-  checkpoint_count="$(find "${COMFY_WORKSPACE}/models/checkpoints" -maxdepth 1 -type f \( -name "*.safetensors" -o -name "*.ckpt" \) | wc -l || true)"
+  checkpoint_count="$(find "${COMFY_WORKSPACE}/models/checkpoints" -maxdepth 1 -type f \( -name "*.safetensors" -o -name "*.ckpt" \) ! -name "sam3.1_multiplex_fp16.safetensors" | wc -l || true)"
 
   log "Real checkpoint file count=$checkpoint_count"
 
@@ -1264,6 +1315,9 @@ provisioning_start() {
   provisioning_enable_hf_xet
 
   provisioning_get_models_dir_urlonly "${COMFY_WORKSPACE}/models/checkpoints"      "${CHECKPOINT_MODELS[@]}"
+  provisioning_get_models_dir_urlonly "${COMFY_WORKSPACE}/models/checkpoints"      "${SAM31_MODELS[@]}"
+  provisioning_link_sam31_model
+
   provisioning_get_models_dir_urlonly "${COMFY_WORKSPACE}/models/unet"             "${UNET_MODELS[@]}"
   provisioning_get_models_dir_urlonly "${COMFY_WORKSPACE}/models/loras"            "${LORA_MODELS[@]}"
   provisioning_get_models_dir_urlonly "${COMFY_WORKSPACE}/models/controlnet"       "${CONTROLNET_MODELS[@]}"
