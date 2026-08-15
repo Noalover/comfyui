@@ -1,4 +1,3 @@
-```
 #!/usr/bin/env bash
 set -euo pipefail
 
@@ -62,7 +61,7 @@ NODES=(
 
 CHECKPOINT_MODELS=(
   #"https://civitai.com/api/download/models/1555027?type=Model&format=SafeTensor"
-  "https://civitai.com/api/download/models/2167369?type=Model&format=SafeTensor&size=pruned&fp=fp16"
+  #"https://civitai.com/api/download/models/2167369?type=Model&format=SafeTensor&size=pruned&fp=fp16"
 )
 
 # SAM 3.1: keep one physical copy in models/checkpoints for native ComfyUI.
@@ -1435,4 +1434,3 @@ provisioning_start() {
 }
 
 provisioning_start
-```
