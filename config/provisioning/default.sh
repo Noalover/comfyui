@@ -1,3 +1,4 @@
+```
 #!/usr/bin/env bash
 set -euo pipefail
 
@@ -54,11 +55,14 @@ NODES=(
   "https://github.com/ltdrdata/ComfyUI-Impact-Pack"
   "https://github.com/ltdrdata/ComfyUI-Impact-Subpack"
   "https://github.com/yolain/ComfyUI-Easy-Sam3"
+  # Fish Audio S2 Pro TTS / zero-shot voice cloning.
+  # FP8 weights are pre-downloaded separately below for fresh Vast instances.
+  "https://github.com/Saganaki22/ComfyUI-FishAudioS2"
 )
 
 CHECKPOINT_MODELS=(
   #"https://civitai.com/api/download/models/1555027?type=Model&format=SafeTensor"
-  #"https://civitai.com/api/download/models/2167369?type=Model&format=SafeTensor&size=pruned&fp=fp16"
+  "https://civitai.com/api/download/models/2167369?type=Model&format=SafeTensor&size=pruned&fp=fp16"
 )
 
 # SAM 3.1: keep one physical copy in models/checkpoints for native ComfyUI.
@@ -166,6 +170,14 @@ LEGACY_DEFAULT_HF_XET_CACHE="${LEGACY_DEFAULT_HF_XET_CACHE:-${HOME:-/root}/.cach
 # Longer timeouts are safer on inconsistent Vast hosts.
 HF_ETAG_TIMEOUT="${HF_ETAG_TIMEOUT:-30}"
 HF_DOWNLOAD_TIMEOUT="${HF_DOWNLOAD_TIMEOUT:-60}"
+
+# Fish Audio S2 Pro FP8.
+# drbaph/s2-pro-fp8 is already weight-quantized to FP8, so bitsandbytes is not
+# required. Fresh Vast instances pre-download it during provisioning so the
+# first ComfyUI generation does not need another ~8 GB model download.
+FISH_S2_PRELOAD="${FISH_S2_PRELOAD:-1}"
+FISH_S2_REPO="${FISH_S2_REPO:-drbaph/s2-pro-fp8}"
+FISH_S2_MODEL_DIR="${FISH_S2_MODEL_DIR:-${COMFY_WORKSPACE}/models/fishaudioS2/s2-pro-fp8}"
 
 PREFLIGHT_FAILURES=()
 
@@ -1009,6 +1021,88 @@ provisioning_get_models_dir_urlonly() {
 
 
 # ============================================================
+# FISH AUDIO S2 PRO MODEL PRELOAD
+# ============================================================
+
+provisioning_preload_fish_s2() {
+  if [[ "$FISH_S2_PRELOAD" != "1" ]]; then
+    log "Fish S2 preload disabled (FISH_S2_PRELOAD=$FISH_S2_PRELOAD)"
+    return 0
+  fi
+
+  mkdir -p "$FISH_S2_MODEL_DIR"
+  provisioning_configure_hf_runtime
+
+  # FP8 repo layout: one ~6.16 GB model.safetensors plus ~1.87 GB codec.pth.
+  local model_file="${FISH_S2_MODEL_DIR}/model.safetensors"
+  local codec="${FISH_S2_MODEL_DIR}/codec.pth"
+  local config="${FISH_S2_MODEL_DIR}/config.json"
+  local quant_info="${FISH_S2_MODEL_DIR}/quantization_info.json"
+
+  if [[ -s "$model_file" && -s "$codec" && -s "$config" && -s "$quant_info" ]]; then
+    log "Fish S2 Pro FP8 model already present; skipping preload: $FISH_S2_MODEL_DIR"
+    ls -lh "$model_file" "$codec" "$config" "$quant_info" || true
+    return 0
+  fi
+
+  log "Preloading Fish S2 Pro FP8 repo: $FISH_S2_REPO"
+  log "Destination: $FISH_S2_MODEL_DIR"
+
+  set +e
+  "$PYTHON_BIN" - "$FISH_S2_REPO" "$FISH_S2_MODEL_DIR" <<'PY'
+import os
+import sys
+
+repo_id, out_dir = sys.argv[1:3]
+token = os.environ.get("HF_TOKEN") or os.environ.get("HUGGINGFACE_HUB_TOKEN") or None
+
+from huggingface_hub import snapshot_download
+
+os.makedirs(out_dir, exist_ok=True)
+
+# Download only files needed for inference. This avoids README/images/license extras.
+snapshot_download(
+    repo_id=repo_id,
+    local_dir=out_dir,
+    token=token,
+    allow_patterns=[
+        "config.json",
+        "chat_template.jinja",
+        "codec.pth",
+        "model.safetensors",
+        "quantization_info.json",
+        "special_tokens_map.json",
+        "tokenizer.json",
+        "tokenizer_config.json",
+    ],
+)
+
+print(f"[provision] Fish S2 FP8 preload complete -> {out_dir}")
+PY
+  local rc=$?
+  set -e
+
+  if [[ $rc -ne 0 ]]; then
+    log "Fish S2 preload FAILED with rc=$rc"
+    MODEL_DL_FAILS+=("$FISH_S2_REPO (Fish S2 preload)")
+    provisioning_cleanup_hf_artifacts || true
+
+    if [[ "$FAIL_ON_MODEL_DL" == "1" ]]; then
+      exit "$rc"
+    fi
+    return 0
+  fi
+
+  # snapshot_download(local_dir=...) may create lightweight local metadata.
+  rm -rf "${FISH_S2_MODEL_DIR}/.cache" || true
+  provisioning_cleanup_hf_artifacts || true
+
+  log "Fish S2 Pro FP8 files:"
+  find "$FISH_S2_MODEL_DIR" -maxdepth 1 -type f -printf '%f %s bytes\n' | sort || true
+}
+
+
+# ============================================================
 # SAM 3.1 / EASY-SAM3 MODEL LINK
 # ============================================================
 
@@ -1314,6 +1408,10 @@ provisioning_start() {
 
   provisioning_enable_hf_xet
 
+  # Fresh Vast instances: download the FP8 S2 Pro repo during provisioning so
+  # the first ComfyUI generation does not have to fetch the ~8 GB repo.
+  provisioning_preload_fish_s2
+
   provisioning_get_models_dir_urlonly "${COMFY_WORKSPACE}/models/checkpoints"      "${CHECKPOINT_MODELS[@]}"
   provisioning_get_models_dir_urlonly "${COMFY_WORKSPACE}/models/checkpoints"      "${SAM31_MODELS[@]}"
   provisioning_link_sam31_model
@@ -1337,3 +1435,4 @@ provisioning_start() {
 }
 
 provisioning_start
+```
