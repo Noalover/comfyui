@@ -92,8 +92,8 @@ UPSCALE_MODELS=(
 )
 
 CONTROLNET_MODELS=(
-  "https://huggingface.co/kohya-ss/Anima-LLLite/resolve/main/anima-lllite-any-test-like-v2.safetensors"
-  "https://huggingface.co/kohya-ss/Anima-LLLite/resolve/main/anima-lllite-inpainting-v2.safetensors"
+  #"https://huggingface.co/kohya-ss/Anima-LLLite/resolve/main/anima-lllite-any-test-like-v2.safetensors"
+  #"https://huggingface.co/kohya-ss/Anima-LLLite/resolve/main/anima-lllite-inpainting-v2.safetensors"
 )
 
 DIFFUSION_MODELS=(
@@ -101,8 +101,9 @@ DIFFUSION_MODELS=(
   #"https://huggingface.co/circlestone-labs/Anima/resolve/main/split_files/diffusion_models/anima-base-v1.0.safetensors"
   #"https://civitai.com/api/download/models/3075206?fileId=2954323"
   #"https://civitai.com/api/download/models/3112659?fileId=2992771"
-  "https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/diffusion_models/minimax_h3_fl2va_pruned_int8_convrot.safetensors"
+  #"https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/diffusion_models/minimax_h3_fl2va_pruned_int8_convrot.safetensors"
   "https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/diffusion_models/minimax_h3_ref2va_pruned_int8_convrot.safetensors"
+  "https://huggingface.co/p3cyc/minimax/resolve/main/DasiwaMinimaxH3_dasiwaREF2VAHybridV1.safetensors"
 )
 
 TEXT_ENCODER_MODELS=(
