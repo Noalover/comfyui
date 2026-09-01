@@ -54,6 +54,8 @@ NODES=(
   "https://github.com/ltdrdata/ComfyUI-Impact-Pack"
   "https://github.com/ltdrdata/ComfyUI-Impact-Subpack"
   "https://github.com/yolain/ComfyUI-Easy-Sam3"
+  "https://github.com/alisson-anjos/ComfyUI-BFSNodes"
+  "https://github.com/numz/ComfyUI-SeedVR2_VideoUpscaler"
 )
 
 CHECKPOINT_MODELS=(
@@ -84,11 +86,19 @@ VAE_MODELS=(
   "https://huggingface.co/Tongyi-MAI/Z-Image-Turbo/resolve/main/vae/diffusion_pytorch_model.safetensors"
   "https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/vae/minimax_h3_audio_vae_fp32.safetensors"
   "https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/vae/minimax_h3_video_vae_fp16.safetensors"
+  "https://huggingface.co/iamkaikai/MiniMax-H3-Single-Frame-VAE-500K/resolve/main/minimax_h3_single_frame_decoder_500k.safetensors"
 )
 
 UPSCALE_MODELS=(
   #"https://huggingface.co/Kim2091/2x-AnimeSharpV4/resolve/main/2x-AnimeSharpV4_RCAN.safetensors"
   #"https://huggingface.co/uwg/upscaler/resolve/main/ESRGAN/4x_NMKD-Siax_200k.pth"
+)
+
+# SeedVR2 custom-node models.
+# ComfyUI-SeedVR2_VideoUpscaler searches ComfyUI/models/SEEDVR2 for both DiT and VAE.
+SEEDVR2_MODELS=(
+  "https://huggingface.co/AInVFX/SeedVR2_comfyUI/resolve/main/seedvr2_ema_7b_fp8_e4m3fn_mixed_block35_fp16.safetensors"
+  "https://huggingface.co/numz/SeedVR2_comfyUI/resolve/main/ema_vae_fp16.safetensors"
 )
 
 CONTROLNET_MODELS=(
@@ -103,7 +113,7 @@ DIFFUSION_MODELS=(
   #"https://civitai.com/api/download/models/3112659?fileId=2992771"
   #"https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/diffusion_models/minimax_h3_fl2va_pruned_int8_convrot.safetensors"
   "https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/diffusion_models/minimax_h3_ref2va_pruned_int8_convrot.safetensors"
-  "https://huggingface.co/p3cyc/minimax/resolve/main/DasiwaMinimaxH3_dasiwaREF2VAHybridV1.safetensors"
+  "https://civitai.red/api/download/models/3251526?fileId=3156811"
 )
 
 TEXT_ENCODER_MODELS=(
@@ -1265,6 +1275,7 @@ verify_critical_models() {
   print_dir_summary "sam3" "${COMFY_WORKSPACE}/models/sam3"
   print_dir_summary "vae" "${COMFY_WORKSPACE}/models/vae"
   print_dir_summary "upscale_models" "${COMFY_WORKSPACE}/models/upscale_models"
+  print_dir_summary "SEEDVR2" "${COMFY_WORKSPACE}/models/SEEDVR2"
   print_dir_summary "diffusion_models" "${COMFY_WORKSPACE}/models/diffusion_models"
   print_dir_summary "text_encoders" "${COMFY_WORKSPACE}/models/text_encoders"
 
@@ -1326,6 +1337,7 @@ provisioning_start() {
   provisioning_get_models_dir_urlonly "${COMFY_WORKSPACE}/models/controlnet"       "${CONTROLNET_MODELS[@]}"
   provisioning_get_models_dir_urlonly "${COMFY_WORKSPACE}/models/vae"              "${VAE_MODELS[@]}"
   provisioning_get_models_dir_urlonly "${COMFY_WORKSPACE}/models/upscale_models"   "${UPSCALE_MODELS[@]}"
+  provisioning_get_models_dir_urlonly "${COMFY_WORKSPACE}/models/SEEDVR2"          "${SEEDVR2_MODELS[@]}"
   provisioning_get_models_dir_urlonly "${COMFY_WORKSPACE}/models/diffusion_models" "${DIFFUSION_MODELS[@]}"
   provisioning_get_models_dir_urlonly "${COMFY_WORKSPACE}/models/text_encoders"    "${TEXT_ENCODER_MODELS[@]}"
   provisioning_get_models_dir_urlonly "${COMFY_WORKSPACE}/models/clip_vision"      "${CLIP_VISION_MODELS[@]}"
