@@ -113,7 +113,7 @@ DIFFUSION_MODELS=(
   #"https://civitai.com/api/download/models/3112659?fileId=2992771"
   #"https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/diffusion_models/minimax_h3_fl2va_pruned_int8_convrot.safetensors"
   "https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/diffusion_models/minimax_h3_ref2va_pruned_int8_convrot.safetensors"
-  "https://civitai.red/api/download/models/3251526?fileId=3156811"
+  "https://civitai.com/api/download/models/3251526?fileId=3156811"
 )
 
 TEXT_ENCODER_MODELS=(
