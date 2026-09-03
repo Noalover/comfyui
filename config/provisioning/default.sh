@@ -81,12 +81,12 @@ LORA_MODELS=(
 )
 
 VAE_MODELS=(
-  "https://civitai.com/api/download/models/155933?type=Model&format=SafeTensor"
+  #"https://civitai.com/api/download/models/155933?type=Model&format=SafeTensor"
   "https://huggingface.co/circlestone-labs/Anima/resolve/main/split_files/vae/qwen_image_vae.safetensors?download=true"
   "https://huggingface.co/Tongyi-MAI/Z-Image-Turbo/resolve/main/vae/diffusion_pytorch_model.safetensors"
   "https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/vae/minimax_h3_audio_vae_fp32.safetensors"
   "https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/vae/minimax_h3_video_vae_fp16.safetensors"
-  "https://huggingface.co/iamkaikai/MiniMax-H3-Single-Frame-VAE-500K/resolve/main/minimax_h3_single_frame_decoder_500k.safetensors"
+  #"https://huggingface.co/iamkaikai/MiniMax-H3-Single-Frame-VAE-500K/resolve/main/minimax_h3_single_frame_decoder_500k.safetensors"
 )
 
 UPSCALE_MODELS=(
@@ -114,6 +114,7 @@ DIFFUSION_MODELS=(
   #"https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/diffusion_models/minimax_h3_fl2va_pruned_int8_convrot.safetensors"
   "https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/diffusion_models/minimax_h3_ref2va_pruned_int8_convrot.safetensors"
   "https://civitai.com/api/download/models/3251526?fileId=3156811"
+  "https://civitai.red/api/download/models/3209007?fileId=3090690"
 )
 
 TEXT_ENCODER_MODELS=(
