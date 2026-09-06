@@ -21,6 +21,7 @@ log "whoami=$(whoami)"
 log "pwd=$(pwd)"
 log "WORKSPACE=${WORKSPACE:-unset}"
 log "CIVITAI_TOKEN length=$(env_len CIVITAI_TOKEN)"
+log "CIVITAI_API_KEY length=$(env_len CIVITAI_API_KEY)"
 log "HF_TOKEN length=$(env_len HF_TOKEN)"
 log "HUGGINGFACE_HUB_TOKEN length=$(env_len HUGGINGFACE_HUB_TOKEN)"
 
@@ -78,6 +79,7 @@ UNET_MODELS=(
 
 LORA_MODELS=(
   #"https://civitai.com/api/download/models/2553688?type=Model&format=SafeTensor"
+  "https://civitai.red/api/download/models/3089149?fileId=2968664"
 )
 
 VAE_MODELS=(
@@ -217,6 +219,159 @@ normalize_comfy_paths() {
   fi
 
   log "ComfyUI found at $COMFY_WORKSPACE"
+}
+
+# ============================================================
+# LORA MANAGER / CIVITAI API KEY
+# ============================================================
+
+get_lora_manager_civitai_key() {
+  # LoRA Manager natively recognizes CIVITAI_API_KEY.
+  # Keep CIVITAI_TOKEN as a fallback because this provisioning script already
+  # uses that variable for authenticated Civitai model downloads.
+  if [[ -n "${CIVITAI_API_KEY:-}" ]]; then
+    printf '%s' "$CIVITAI_API_KEY"
+    return 0
+  fi
+
+  if [[ -n "${CIVITAI_TOKEN:-}" ]]; then
+    printf '%s' "$CIVITAI_TOKEN"
+    return 0
+  fi
+
+  printf ''
+}
+
+provisioning_configure_lora_manager_civitai() {
+  local manager_dir="${COMFY_WORKSPACE}/custom_nodes/ComfyUI-Lora-Manager"
+  local api_key
+  api_key="$(get_lora_manager_civitai_key)"
+
+  if [[ ! -d "$manager_dir" ]]; then
+    log "ERROR: LoRA Manager directory is missing: $manager_dir"
+    return 1
+  fi
+
+  if [[ -z "$api_key" ]]; then
+    log "ERROR: Neither CIVITAI_API_KEY nor CIVITAI_TOKEN is set."
+    log "LoRA Manager Civitai authentication cannot be configured."
+    return 1
+  fi
+
+  # Normalize the name used by current LoRA Manager code for this provisioning
+  # process. We still persist the value to settings.json below so it works even
+  # when ComfyUI is launched later by a separate supervisor process.
+  export CIVITAI_API_KEY="$api_key"
+
+  local settings_path
+  if [[ "${LORA_MANAGER_PORTABLE:-0}" == "1" ]]; then
+    settings_path="${manager_dir}/settings.json"
+  else
+    local config_root="${XDG_CONFIG_HOME:-${HOME:-/root}/.config}"
+    config_root="${config_root%/}"
+    settings_path="${config_root}/ComfyUI-LoRA-Manager/settings.json"
+  fi
+
+  log "Configuring LoRA Manager Civitai authentication..."
+  log "LoRA Manager settings path: $settings_path"
+  log "LoRA Manager Civitai key length=${#api_key}"
+
+  mkdir -p "$(dirname "$settings_path")"
+
+  # Do not pass the secret on the Python command line and never print it.
+  # Preserve all existing settings. If a broken JSON file exists, back it up
+  # before creating a clean minimal settings file.
+  CIVITAI_LM_KEY="$api_key" "$PYTHON_BIN" - "$settings_path" <<'PY'
+import json
+import os
+import shutil
+import sys
+import tempfile
+import time
+from pathlib import Path
+
+settings_path = Path(sys.argv[1])
+api_key = os.environ.get("CIVITAI_LM_KEY", "")
+
+if not api_key:
+    print("[provision] ERROR: CIVITAI_LM_KEY is empty")
+    raise SystemExit(2)
+
+settings_path.parent.mkdir(parents=True, exist_ok=True)
+
+payload = {}
+if settings_path.exists():
+    try:
+        with settings_path.open("r", encoding="utf-8") as f:
+            loaded = json.load(f)
+        if not isinstance(loaded, dict):
+            raise ValueError("settings.json root is not a JSON object")
+        payload = loaded
+    except Exception as exc:
+        backup = settings_path.with_name(
+            settings_path.name + f".broken.{int(time.time())}.bak"
+        )
+        shutil.copy2(settings_path, backup)
+        print(
+            "[provision] WARNING: Existing LoRA Manager settings were invalid; "
+            f"backup created at {backup}: {exc!r}"
+        )
+        payload = {}
+
+payload["civitai_api_key"] = api_key
+
+# Atomic write so an interrupted provisioning run cannot leave half-written JSON.
+fd, tmp_name = tempfile.mkstemp(
+    prefix=settings_path.name + ".",
+    suffix=".tmp",
+    dir=str(settings_path.parent),
+)
+try:
+    with os.fdopen(fd, "w", encoding="utf-8") as f:
+        json.dump(payload, f, ensure_ascii=False, indent=2)
+        f.write("\n")
+        f.flush()
+        os.fsync(f.fileno())
+    os.chmod(tmp_name, 0o600)
+    os.replace(tmp_name, settings_path)
+finally:
+    if os.path.exists(tmp_name):
+        os.unlink(tmp_name)
+
+# Read-after-write verification without exposing the secret.
+with settings_path.open("r", encoding="utf-8") as f:
+    verify = json.load(f)
+
+if verify.get("civitai_api_key") != api_key:
+    print("[provision] ERROR: LoRA Manager Civitai key verification failed")
+    raise SystemExit(3)
+
+print(
+    "[provision] LoRA Manager Civitai key configured and verified "
+    f"(length={len(api_key)})"
+)
+PY
+
+  chmod 600 "$settings_path" || true
+
+  # Final shell-side verification: JSON must parse and key length must match.
+  local stored_len
+  stored_len="$("$PYTHON_BIN" - "$settings_path" <<'PY'
+import json
+import sys
+with open(sys.argv[1], "r", encoding="utf-8") as f:
+    data = json.load(f)
+value = data.get("civitai_api_key", "")
+print(len(value) if isinstance(value, str) else -1)
+PY
+)"
+
+  if [[ "$stored_len" != "${#api_key}" ]]; then
+    log "ERROR: LoRA Manager Civitai key length verification failed (stored=$stored_len expected=${#api_key})"
+    return 1
+  fi
+
+  log "LoRA Manager Civitai authentication is ready."
 }
 
 pip_install() {
@@ -1326,6 +1481,7 @@ provisioning_start() {
   provisioning_get_apt_packages
   provisioning_host_preflight
   provisioning_get_nodes
+  provisioning_configure_lora_manager_civitai
   provisioning_get_pip_packages
 
   provisioning_enable_hf_xet
