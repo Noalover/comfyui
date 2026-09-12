@@ -135,8 +135,46 @@ WORKSPACE="${WORKSPACE:-/workspace}"
 COMFY_WORKSPACE="/workspace/ComfyUI"
 INTERNAL_COMFY="/opt/workspace-internal/ComfyUI"
 
-PYTHON_BIN="${PYTHON_BIN:-/venv/main/bin/python}"
-PIP_BIN="${PIP_BIN:-/venv/main/bin/pip}"
+# Python / pip auto-detection for Vast + RunPod AI-Dock.
+# Preserve an explicitly supplied executable path first, then try the known
+# AI-Dock virtualenv locations used by Vast and RunPod, and finally fall back
+# to whatever Python is available on PATH.
+if [[ -n "${PYTHON_BIN:-}" && -x "${PYTHON_BIN}" ]]; then
+  :
+elif [[ -x "/venv/main/bin/python" ]]; then
+  PYTHON_BIN="/venv/main/bin/python"
+elif [[ -x "/opt/environments/python/comfyui/bin/python" ]]; then
+  PYTHON_BIN="/opt/environments/python/comfyui/bin/python"
+else
+  PYTHON_BIN="$(command -v python3 || command -v python || true)"
+fi
+
+# Prefer pip from the same virtualenv as the selected Python so packages are
+# installed into the interpreter ComfyUI actually uses.
+if [[ -n "${PIP_BIN:-}" && -x "${PIP_BIN}" ]]; then
+  :
+elif [[ -n "${PYTHON_BIN:-}" && -x "$(dirname "${PYTHON_BIN}")/pip" ]]; then
+  PIP_BIN="$(dirname "${PYTHON_BIN}")/pip"
+elif [[ -x "/venv/main/bin/pip" ]]; then
+  PIP_BIN="/venv/main/bin/pip"
+elif [[ -x "/opt/environments/python/comfyui/bin/pip" ]]; then
+  PIP_BIN="/opt/environments/python/comfyui/bin/pip"
+else
+  PIP_BIN="$(command -v pip3 || command -v pip || true)"
+fi
+
+if [[ -z "${PYTHON_BIN:-}" || ! -x "${PYTHON_BIN}" ]]; then
+  log "ERROR: No usable Python interpreter found"
+  exit 1
+fi
+
+if [[ -z "${PIP_BIN:-}" || ! -x "${PIP_BIN}" ]]; then
+  log "ERROR: No usable pip executable found"
+  exit 1
+fi
+
+log "PYTHON_BIN=$PYTHON_BIN"
+log "PIP_BIN=$PIP_BIN"
 
 APT_INSTALL="${APT_INSTALL:-apt-get install -y --no-install-recommends}"
 
