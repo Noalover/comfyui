@@ -117,9 +117,9 @@ DIFFUSION_MODELS=(
   #"https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/diffusion_models/minimax_h3_fl2va_pruned_int8_convrot.safetensors"
   "https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/diffusion_models/minimax_h3_ref2va_pruned_int8_convrot.safetensors"
   "https://civitai.com/api/download/models/3314675?fileId=3203130"
-  #"https://civitai.com/api/download/models/3209007?fileId=3090690"
+  "https://civitai.com/api/download/models/3209007?fileId=3090690"
   "https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/diffusion_models/qwen_image_2.1_int8_convrot.safetensors"
-  "https://civitai.com/api/download/models/3270517?fileId=3163985"
+  #"https://civitai.com/api/download/models/3270517?fileId=3163985"
 )
 
 TEXT_ENCODER_MODELS=(
