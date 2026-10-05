@@ -111,12 +111,12 @@ CONTROLNET_MODELS=(
 
 DIFFUSION_MODELS=(
   #"https://civitai.com/api/download/models/3126581?fileId=3007030"
-   "https://huggingface.co/circlestone-labs/Anima/resolve/main/split_files/diffusion_models/anima-base-v1.0.safetensors"
+  #"https://huggingface.co/circlestone-labs/Anima/resolve/main/split_files/diffusion_models/anima-base-v1.0.safetensors"
   #"https://civitai.com/api/download/models/3075206?fileId=2954323"
-  #"https://civitai.com/api/download/models/3112659?fileId=2992771"
+   "https://civitai.com/api/download/models/3201770?fileId=3083049
   #"https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/diffusion_models/minimax_h3_fl2va_pruned_int8_convrot.safetensors"
   "https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/diffusion_models/minimax_h3_ref2va_pruned_int8_convrot.safetensors"
-  "https://civitai.com/api/download/models/3314675?fileId=3203130"
+  "https://civitai.com/api/download/models/3374445?fileId=3263052"
   "https://civitai.com/api/download/models/3209007?fileId=3090690"
   "https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/diffusion_models/qwen_image_2.1_int8_convrot.safetensors"
   #"https://civitai.com/api/download/models/3270517?fileId=3163985"
