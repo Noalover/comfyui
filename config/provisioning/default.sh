@@ -113,7 +113,7 @@ DIFFUSION_MODELS=(
   #"https://civitai.com/api/download/models/3126581?fileId=3007030"
   #"https://huggingface.co/circlestone-labs/Anima/resolve/main/split_files/diffusion_models/anima-base-v1.0.safetensors"
   #"https://civitai.com/api/download/models/3075206?fileId=2954323"
-   "https://civitai.com/api/download/models/3201770?fileId=3083049
+   "https://civitai.com/api/download/models/3201770?fileId=3083049"
   #"https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/diffusion_models/minimax_h3_fl2va_pruned_int8_convrot.safetensors"
   "https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/diffusion_models/minimax_h3_ref2va_pruned_int8_convrot.safetensors"
   "https://civitai.com/api/download/models/3374445?fileId=3263052"
